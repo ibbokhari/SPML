@@ -13,7 +13,7 @@ if not st.session_state["access_granted"]:
     passcode_input = st.text_input("Enter crew passcode", type="password")
     
     # Set your passcode here (can later move to secrets.toml)
-    correct_passcode = "flysafe2025"
+    correct_passcode = "flysafesnf"
     
     if passcode_input == correct_passcode:
         st.session_state["access_granted"] = True
