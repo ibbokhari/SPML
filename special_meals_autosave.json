@@ -1,0 +1,72 @@
+[
+  {
+    "name": "Mahdi Bin Ajyan",
+    "title": "MR",
+    "seat": "053L",
+    "meal": "FPML-GU",
+    "side": "R",
+    "zone": "R4",
+    "crew_comments": "",
+    "delivered": false
+  },
+  {
+    "name": "A Elsergany",
+    "title": "MR",
+    "seat": "055H",
+    "meal": "BLML-NG",
+    "side": "R",
+    "zone": "R5",
+    "crew_comments": "",
+    "delivered": false
+  },
+  {
+    "name": "Emad Ismaeil",
+    "title": "MR",
+    "seat": "041L",
+    "meal": "LFML-GU",
+    "side": "R",
+    "zone": "R3",
+    "crew_comments": "",
+    "delivered": false
+  },
+  {
+    "name": "Hashim Katib",
+    "title": "MR",
+    "seat": "001D",
+    "meal": "LFML-GU",
+    "side": "L",
+    "zone": "L3",
+    "crew_comments": "",
+    "delivered": false
+  },
+  {
+    "name": "Morooj Katib",
+    "title": "MRS",
+    "seat": "001A",
+    "meal": "VGML-GU",
+    "side": "L",
+    "zone": "L3",
+    "crew_comments": "",
+    "delivered": false
+  },
+  {
+    "name": "Nermin Moustafa",
+    "title": "MS",
+    "seat": "040L",
+    "meal": "FPML-GU",
+    "side": "R",
+    "zone": "R3",
+    "crew_comments": "",
+    "delivered": false
+  },
+  {
+    "name": "Omar Sorour",
+    "title": "MR",
+    "seat": "036A",
+    "meal": "DBML-GU",
+    "side": "L",
+    "zone": "L3",
+    "crew_comments": "",
+    "delivered": false
+  }
+]
