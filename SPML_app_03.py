@@ -4,7 +4,26 @@ import pandas as pd
 from io import StringIO
 import os
 from collections import Counter
+# === Simple Access Control ===
+if "access_granted" not in st.session_state:
+    st.session_state["access_granted"] = False
 
+if not st.session_state["access_granted"]:
+    st.subheader("🔒 Crew Access Only")
+    passcode_input = st.text_input("Enter crew passcode", type="password")
+    
+    # Set your passcode here (can later move to secrets.toml)
+    correct_passcode = "flysafe2025"
+    
+    if passcode_input == correct_passcode:
+        st.session_state["access_granted"] = True
+        st.success("✅ Access granted. Welcome crew!")
+        st.experimental_rerun()
+    elif passcode_input:
+        st.error("❌ Incorrect passcode.")
+    
+    st.stop()
+###Start of SPML
 st.set_page_config(page_title="Special Meal Loader", layout="centered")
 st.title("✈️ Special Meal Loader")
 st.markdown("""
