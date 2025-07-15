@@ -4,6 +4,163 @@ import pandas as pd
 from io import StringIO
 import os
 from collections import Counter
+import requests, time, json, re, sys
+
+# === 1. Fill with your Azure credentials ===
+AZURE_ENDPOINT = "https://spmlplus.cognitiveservices.azure.com/"
+AZURE_KEY = "28cd7a03600d48288934c7f08ab9f563"
+AZURE_MODEL_ID = "special-meal-v1"
+
+from PIL import Image
+import io
+@st.cache_data
+def normalize_image_for_azure(uploaded_file, target_dpi=200, max_width=3000, max_height=3000):
+    """
+    Resize image safely for Azure OCR:
+    - Ensures manageable DPI (~200)
+    - Avoids file > 50MB
+    - Keeps within Azure limits (max 10k px)
+    """
+    img = Image.open(uploaded_file)
+    img = img.convert("RGB")  # ensure no alpha
+
+    # Current dimensions
+    width, height = img.size
+    dpi_info = img.info.get("dpi", (72, 72))
+    current_dpi = dpi_info[0]
+
+    # --- Decide scaling ---
+    # If too small (<150 DPI), upscale moderately
+    if current_dpi < 150:
+        scale_factor = 150 / current_dpi
+        new_width = min(int(width * scale_factor), max_width)
+        new_height = min(int(height * scale_factor), max_height)
+        img = img.resize((new_width, new_height), Image.LANCZOS)
+
+    # If too large, downscale
+    if width > max_width or height > max_height:
+        img.thumbnail((max_width, max_height), Image.LANCZOS)
+
+    # Save optimized image
+    buffer = io.BytesIO()
+    img.save(buffer, format="JPEG", quality=90, dpi=(target_dpi, target_dpi))
+    buffer.seek(0)
+
+    return buffer.read()
+
+# === Azure OCR Call ===
+def analyze_meal_list_azure(file_bytes):
+    """
+    Sends image/PDF to Azure OCR (Document Intelligence V1 model)
+    and waits for the structured JSON result.
+    """
+    url = f"{AZURE_ENDPOINT}formrecognizer/documentModels/{AZURE_MODEL_ID}:analyze?api-version=2023-07-31"
+    headers = {
+        "Ocp-Apim-Subscription-Key": AZURE_KEY,
+        "Content-Type": "application/octet-stream"
+    }
+    
+    # Step 1: Send image/PDF to Azure
+    response = requests.post(url, headers=headers, data=file_bytes)
+    if response.status_code != 202:
+        raise Exception(f"Azure failed: {response.text}")
+    
+    # Step 2: Poll until Azure finishes analysis
+    result_url = response.headers["operation-location"]
+    for _ in range(30):  # wait up to 30 seconds
+        result = requests.get(result_url, headers={"Ocp-Apim-Subscription-Key": AZURE_KEY})
+        data = result.json()
+        if data.get("status") == "succeeded":
+            return data
+        elif data.get("status") == "failed":
+            raise Exception("Azure analysis failed")
+        time.sleep(1)
+    raise TimeoutError("Azure OCR timed out")
+
+
+# === Helper: Extract Text Safely ===
+def extract_text(field):
+    """
+    Handles Azure fields that can be either a string or a nested dict.
+    Always returns a clean string.
+    """
+    if isinstance(field, str):
+        return field.strip()
+    elif isinstance(field, dict):
+        return field.get("content", field.get("valueString", "")).strip()
+    return ""
+
+
+# === Cleanup Parser ===
+def clean_azure_meal_blocks(azure_json):
+    """
+    Cleans Azure OCR JSON and returns ready-to-use meal blocks for SPML.
+    Adds fallback regex for Seat & Meal when missing.
+    """
+    clean_blocks = []
+    special_meal_list = []
+
+    # --- Grab full OCR text for fallback ---
+    raw_text = azure_json.get("content", "")
+    seat_candidates = re.findall(r"\b\d{2,3}[A-Z]\b", raw_text)
+    meal_candidates = re.findall(r"\b(?:FPML|DBML|VGML|LSML|CHML|LCML|AVML)\b", raw_text)
+
+    # --- Recursive scan to find meal rows ---
+    def recursive_extract(d):
+        if isinstance(d, dict):
+            if "Seat" in d and "Meal_Code" in d:
+                special_meal_list.append(d)
+            if "fields" in d and isinstance(d["fields"], dict):
+                f = d["fields"]
+                if "Seat" in f and "Meal_Code" in f:
+                    special_meal_list.append(f)
+            for v in d.values():
+                recursive_extract(v)
+        elif isinstance(d, list):
+            for v in d:
+                recursive_extract(v)
+
+    recursive_extract(azure_json)
+
+    for entry in special_meal_list:
+        raw_name  = extract_text(entry.get("content", entry.get("PassengerName", "")))
+        raw_title = extract_text(entry.get("Ttile", entry.get("Title", "")))
+        raw_seat  = extract_text(entry.get("Seat", ""))
+        raw_meal  = extract_text(entry.get("Meal_Code", ""))
+
+        # 1️⃣ Clean Passenger Name
+        raw_name = re.sub(r"^\d+\.", "", raw_name)
+        if "/" in raw_name:
+            parts = raw_name.split("/")
+            cleaned_name = " ".join(part.title() for part in parts if part)
+        else:
+            cleaned_name = raw_name.title()
+
+        # 2️⃣ Clean Meal Code
+        cleaned_meal = re.sub(r"-GU.*$", "", raw_meal)
+
+        # 3️⃣ Validate seat
+        seat_match = re.match(r"^\d{2,3}[A-Z]$", raw_seat)
+        cleaned_seat = raw_seat if seat_match else ""
+
+        # 4️⃣ Fallback if seat/meal missing
+        if not cleaned_seat and seat_candidates:
+            cleaned_seat = seat_candidates.pop(0)
+        if not cleaned_meal and meal_candidates:
+            cleaned_meal = meal_candidates.pop(0)
+
+        # 5️⃣ Still log if missing after fallback
+        if not cleaned_seat or not cleaned_meal:
+            print(f"⚠️ Even fallback missing for: {cleaned_name} (seat={cleaned_seat}, meal={cleaned_meal})")
+
+        clean_blocks.append({
+            "name": cleaned_name,
+            "title": raw_title,
+            "seat": cleaned_seat or "[MISSING]",
+            "meal": cleaned_meal or "[MISSING]"
+        })
+
+    return clean_blocks
 # === Simple Access Control ===
 if "access_granted" not in st.session_state:
     st.session_state["access_granted"] = False
@@ -18,7 +175,7 @@ if not st.session_state["access_granted"]:
     if passcode_input == correct_passcode:
         st.session_state["access_granted"] = True
         st.success("✅ Access granted. Welcome crew!")
-        st.experimental_rerun()
+        st.rerun()
     elif passcode_input:
         st.error("❌ Incorrect passcode.")
     
@@ -95,6 +252,37 @@ if uploaded_files:
         st.session_state["blocks"] = merged_blocks
         auto_save()
         st.success(f"✅ Loaded {len(merged_blocks)} total meal blocks from {len(uploaded_files)} files.")
+
+# ✅ === NEW Azure OCR Section ===
+st.subheader("📸 Upload Meal List Image (Azure OCR V1)")
+
+azure_image = st.file_uploader(
+    "Upload JPG/PNG/PDF for OCR",
+    type=["jpg", "jpeg", "png", "pdf"],
+    key="azure_upload"
+)
+
+if azure_image is not None:
+    try:
+        # Spinner for image optimization + OCR call
+        with st.spinner("⏳ Optimizing image & sending to Azure OCR..."):
+            optimized_bytes = normalize_image_for_azure(azure_image)
+            azure_result = analyze_meal_list_azure(optimized_bytes)
+
+        # Spinner for cleaning the OCR result
+        with st.spinner("⏳ Cleaning Azure OCR results..."):
+            meal_blocks = clean_azure_meal_blocks(azure_result)
+
+        if meal_blocks:
+            st.session_state["blocks"] = meal_blocks
+            auto_save()
+            st.success(f"✅ Azure OCR loaded {len(meal_blocks)} meal blocks!")
+            st.json(meal_blocks[:5])  # quick preview
+        else:
+            st.warning("⚠️ Azure returned no valid meal blocks. Try again or check model.")
+
+    except Exception as e:
+        st.error(f"❌ Azure OCR failed: {e}")
 
 def assign_side_and_zone(block, aircraft_type, reg_prefix):
     seat = block.get("seat", "")
