@@ -7,9 +7,9 @@ from collections import Counter
 import requests, time, json, re, sys
 
 # === 1. Fill with your Azure credentials ===
-AZURE_ENDPOINT = "https://spmlplus.cognitiveservices.azure.com/"
-AZURE_KEY = "28cd7a03600d48288934c7f08ab9f563"
-AZURE_MODEL_ID = "special-meal-v1"
+AZURE_ENDPOINT = st.secrets["AZURE_ENDPOINT"]
+AZURE_KEY = st.secrets["AZURE_KEY"]
+AZURE_MODEL_ID = st.secrets["AZURE_MODEL_ID"]
 
 from PIL import Image
 import io
