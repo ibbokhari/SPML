@@ -6,10 +6,15 @@ import os
 from collections import Counter
 import requests, time, json, re, sys
 
-# === 1. Fill with your Azure credentials ===
-AZURE_ENDPOINT = st.secrets["AZURE_ENDPOINT"]
-AZURE_KEY = st.secrets["AZURE_KEY"]
-AZURE_MODEL_ID = st.secrets["AZURE_MODEL_ID"]
+# ✅ Force Streamlit to use Azure-friendly host/port
+os.environ["STREAMLIT_SERVER_ADDRESS"] = "0.0.0.0"
+os.environ["STREAMLIT_SERVER_PORT"] = "8000"
+os.environ["STREAMLIT_SERVER_ENABLECORS"] = "false"
+
+# ✅ Load secrets from Azure App Settings (environment variables)
+AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
+AZURE_KEY = os.getenv("AZURE_KEY")
+AZURE_MODEL_ID = os.getenv("AZURE_MODEL_ID", "special-meal-v1")
 
 from PIL import Image
 import io
