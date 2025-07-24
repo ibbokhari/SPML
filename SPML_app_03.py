@@ -10,6 +10,7 @@ import requests, time, json, re, sys
 os.environ["STREAMLIT_SERVER_ADDRESS"] = "0.0.0.0"
 os.environ["STREAMLIT_SERVER_PORT"] = "8000"
 os.environ["STREAMLIT_SERVER_ENABLECORS"] = "false"
+os.environ["STREAMLIT_SERVER_ENABLEXSRS_PROTECTION"] = "false"
 
 # ✅ Load secrets from Azure App Settings (environment variables)
 AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
@@ -671,6 +672,6 @@ if st.session_state["blocks"]:
         #)
 else:
     st.info("Please upload a JSON file to begin.")
-"# trigger redeployment $(date)" 
-#   A z u r e   b i n d i n g   f i x   0 7 / 2 4 / 2 0 2 5   1 0 : 2 7 : 5 2  
+
+ 
  
