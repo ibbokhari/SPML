@@ -5,8 +5,9 @@ from io import StringIO
 import os
 from collections import Counter
 import requests, time, json, re, sys
+# trigger redeployment
 
-# ✅ Force Streamlit to use Azure-friendly host/port
+# Force Streamlit to use Azure-friendly host/port
 os.environ["STREAMLIT_SERVER_ADDRESS"] = "0.0.0.0"
 os.environ["STREAMLIT_SERVER_PORT"] = "8000"
 os.environ["STREAMLIT_SERVER_ENABLECORS"] = "false"
@@ -672,6 +673,3 @@ if st.session_state["blocks"]:
         #)
 else:
     st.info("Please upload a JSON file to begin.")
-
- 
- 
